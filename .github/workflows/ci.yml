@@ -1,0 +1,48 @@
+name: Python and OCR checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: requirements.lock
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgl1
+      - run: python -m pip install -r requirements.lock
+      - run: python -m pip check
+      - run: python -m unittest discover -s tests -v
+      - run: python ludwig.py --help
+
+  synthetic-ocr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: requirements.lock
+      - run: sudo apt-get update
+      - run: sudo apt-get install -y tesseract-ocr tesseract-ocr-por libgl1
+      - run: python -m pip install -r requirements.lock
+      - run: tesseract --version
+      - run: tesseract --list-langs
+      - run: python benchmark.py --synthetic --check
